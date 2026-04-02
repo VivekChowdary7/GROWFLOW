@@ -1,6 +1,16 @@
 import { Redis } from '@upstash/redis';
 
-const redis = Redis.fromEnv();
+const redisUrl =
+  process.env.UPSTASH_REDIS_REST_URL ||
+  process.env.KV_REST_API_URL ||
+  process.env.GROWFLOW_KV_REST_API_URL;
+
+const redisToken =
+  process.env.UPSTASH_REDIS_REST_TOKEN ||
+  process.env.KV_REST_API_TOKEN ||
+  process.env.GROWFLOW_KV_REST_API_TOKEN;
+
+const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
 
 function sanitize(value) {
   return String(value || '').trim();
@@ -12,6 +22,10 @@ export default async function handler(req, res) {
   }
 
   try {
+    if (!redis) {
+      return res.status(500).json({ ok: false, message: 'Redis is not configured in environment variables.' });
+    }
+
     const email = sanitize(req.body?.email);
     const whatsapp = sanitize(req.body?.whatsapp);
     const category = sanitize(req.body?.category);
