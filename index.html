@@ -687,11 +687,23 @@
         const openContact = document.getElementById('openContact');
         const closeContact = document.getElementById('closeContact');
         const contactHelperText = document.getElementById('contactHelperText');
+        const tallySubmittedKey = 'tally_submitted_XxYyYe';
+
+        function hideContactHelperText() {
+          contactHelperText.classList.add('hidden');
+          sessionStorage.setItem(tallySubmittedKey, '1');
+        }
+
+        function showContactHelperTextIfNeeded() {
+          const isSubmitted = sessionStorage.getItem(tallySubmittedKey) === '1';
+          contactHelperText.classList.toggle('hidden', isSubmitted);
+        }
 
         function openContactPage() {
           if (websiteLocked()) {
             return;
           }
+          showContactHelperTextIfNeeded();
           contactOverlay.classList.add('is-open');
           contactOverlay.setAttribute('aria-hidden', 'false');
         }
@@ -733,13 +745,43 @@
         }
 
         window.addEventListener('message', function (event) {
-          const payload = event && event.data ? event.data : {};
-          const eventName = payload.event || payload.type || '';
+          if (event.origin && !event.origin.includes('tally.so')) {
+            return;
+          }
 
-          if (eventName === 'Tally.FormSubmitted' || eventName === 'tally-form-submitted') {
-            contactHelperText.classList.add('hidden');
+          let payload = event && event.data ? event.data : {};
+          if (typeof payload === 'string') {
+            try {
+              payload = JSON.parse(payload);
+            } catch {
+              payload = { raw: payload };
+            }
+          }
+
+          const candidates = [
+            payload.event,
+            payload.type,
+            payload.name,
+            payload.payload && payload.payload.event,
+            payload.payload && payload.payload.type,
+            payload.raw,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+
+          if (
+            candidates.includes('tally.formsubmitted') ||
+            candidates.includes('tally-form-submitted') ||
+            candidates.includes('formsubmitted') ||
+            candidates.includes('submission') ||
+            candidates.includes('responseid')
+          ) {
+            hideContactHelperText();
           }
         });
+
+        showContactHelperTextIfNeeded();
 
         agreeTerms.addEventListener('click', function () {
           termsGate.classList.add('hidden');
